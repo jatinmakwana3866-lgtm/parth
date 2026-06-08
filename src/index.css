@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body, html { margin: 0; padding: 0; background: #0A0E1A; }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #1C2438 inset !important;
+  -webkit-text-fill-color: #F8F5F0 !important;
+  caret-color: #F8F5F0 !important;
+}
+
+/* Hide scrollbars on horizontal scroll areas */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
