@@ -181,7 +181,7 @@ export const useStore = create<State>((set, get) => ({
           });
         }
       } else {
-        // Fallback: no auth (offline/demo mode)
+        // Fallback: no Supabase auth — treat as guest/demo mode with authenticated flag
         set({
           screen: 'home',
           user: {
@@ -191,12 +191,13 @@ export const useStore = create<State>((set, get) => ({
             role: selectedRole || 'machine_wala',
             tokens: 1,
           },
+          auth: { ...auth, isAuthenticated: true },
           transactions: [{ id: Date.now(), type: 'gift', text: 'Welcome gift', delta: '+1', time: 'Today' }],
           loading: false,
         });
       }
     } catch {
-      // Network error fallback
+      // Network error fallback — still let the user in
       set({
         screen: 'home',
         user: {
@@ -206,6 +207,7 @@ export const useStore = create<State>((set, get) => ({
           role: selectedRole || 'machine_wala',
           tokens: 0,
         },
+        auth: { ...get().auth, isAuthenticated: true },
         loading: false,
       });
     }
