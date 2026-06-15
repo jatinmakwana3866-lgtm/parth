@@ -1,5 +1,6 @@
 import {
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
   User,
@@ -25,37 +26,42 @@ export interface FirebaseUserProfile {
   updatedAt: unknown;
 }
 
-export async function signInWithGoogle(): Promise<FirebaseUserProfile> {
-  console.log('[Firebase] Starting Google Sign-In with popup...');
-
+// Call this on app load to handle redirect result
+export async function handleRedirectResult(): Promise<FirebaseUserProfile | null> {
+  console.log('[Firebase] Checking for redirect result...');
   try {
-    const result = await signInWithPopup(firebaseAuth, googleProvider);
-    console.log('[Firebase] Popup sign-in succeeded. User:', result.user.uid, result.user.email);
-
-    const profile = await saveOrUpdateUserProfile(result.user);
-    console.log('[Firebase] User profile saved/updated in Firestore:', profile.uid);
-    return profile;
+    const result = await getRedirectResult(firebaseAuth);
+    if (result?.user) {
+      console.log('[Firebase] Redirect sign-in succeeded. User:', result.user.uid, result.user.email);
+      const profile = await saveOrUpdateUserProfile(result.user);
+      console.log('[Firebase] User profile saved/updated in Firestore:', profile.uid);
+      return profile;
+    }
+    console.log('[Firebase] No redirect result pending.');
+    return null;
   } catch (err) {
     const error = err as AuthError;
-    console.error('[Firebase] signInWithPopup failed:', error.code, error.message);
+    console.error('[Firebase] getRedirectResult error:', error.code, error.message);
+    return null;
+  }
+}
 
-    // Provide a user-readable message for common error codes
-    if (error.code === 'auth/popup-blocked') {
-      throw new Error('Popup was blocked by the browser. Please allow popups for this site and try again.');
-    }
-    if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error('Sign-in popup was closed before completing. Please try again.');
-    }
-    if (error.code === 'auth/cancelled-popup-request') {
-      throw new Error('Another sign-in popup is already open. Please close it and try again.');
+export async function signInWithGoogle(): Promise<void> {
+  console.log('[Firebase] Starting Google Sign-In via redirect...');
+
+  try {
+    await signInWithRedirect(firebaseAuth, googleProvider);
+    // The page will redirect — code after this won't run
+  } catch (err) {
+    const error = err as AuthError;
+    console.error('[Firebase] signInWithRedirect failed:', error.code, error.message);
+
+    if (error.code === 'auth/unauthorized-domain') {
+      throw new Error('This domain is not authorized in Firebase. Add it to the Authorized Domains list in Firebase Console.');
     }
     if (error.code === 'auth/network-request-failed') {
       throw new Error('Network error. Please check your connection and try again.');
     }
-    if (error.code === 'auth/unauthorized-domain') {
-      throw new Error('This domain is not authorized in Firebase. Add it to the Authorized Domains list in Firebase Console.');
-    }
-    // Re-throw with the original message for unexpected errors
     throw new Error(error.message || 'Google Sign-In failed. Please try again.');
   }
 }

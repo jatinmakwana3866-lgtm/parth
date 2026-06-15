@@ -19,4 +19,4 @@ export const firebaseAuth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
-console.log('[Firebase] Auth and Firestore ready');
+console.log('[Firebase] Auth and Firestore ready. Using redirect-based auth.');

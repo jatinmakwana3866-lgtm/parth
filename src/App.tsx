@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useStore } from './lib/store';
 import { supabase } from './lib/supabase';
 import { syncTokenBalance } from './lib/auth';
-import { onFirebaseAuthStateChanged, saveOrUpdateUserProfile } from './lib/firebaseAuth';
+import { onFirebaseAuthStateChanged, handleRedirectResult, saveOrUpdateUserProfile } from './lib/firebaseAuth';
 
 import { LanguageScreen } from './onboarding/LanguageScreen';
 import { WelcomeScreen } from './onboarding/WelcomeScreen';
@@ -31,6 +31,40 @@ function App() {
   const screen = useStore(s => s.screen);
   const isAuthenticated = useStore(s => s.auth.isAuthenticated);
   const setAuth = useStore(s => s.setAuth);
+
+  // Check for Firebase redirect result on mount
+  useEffect(() => {
+    (async () => {
+      console.log('[App] Checking for Firebase redirect result...');
+      const profile = await handleRedirectResult();
+      if (profile) {
+        console.log('[App] Redirect sign-in completed, navigating to home');
+        useStore.setState({
+          firebaseUser: profile,
+          auth: {
+            isAuthenticated: true,
+            authUid: profile.uid,
+            accessToken: null,
+            emailVerified: true,
+            suspendMessage: null,
+            tokenClaimDenied: false,
+            tokenClaimReason: null,
+          },
+          user: {
+            name: profile.displayName,
+            email: profile.email,
+            role: profile.role || 'machine_wala',
+            tokens: profile.tokens ?? 0,
+            city: profile.city || '',
+            verified: false,
+            photoURL: profile.photoURL,
+          },
+          screen: 'home',
+          loading: false,
+        });
+      }
+    })();
+  }, []);
 
   // Supabase auth listener
   useEffect(() => {
