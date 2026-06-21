@@ -378,12 +378,34 @@ export const useStore = create<State>((set, get) => ({
   },
 
   handleGoogleSignIn: async () => {
-    console.log('[Store] handleGoogleSignIn called — initiating redirect');
+    console.log('[Store] handleGoogleSignIn called — initiating popup');
     set({ loading: true, auth: { ...get().auth, suspendMessage: null } });
     try {
-      // signInWithGoogle now uses redirect — the page will navigate away
-      await signInWithGoogle();
-      // Code after this won't run — the page is redirecting
+      const profile = await signInWithGoogle();
+      console.log('[Store] Google popup sign-in completed, navigating to home');
+      set({
+        firebaseUser: profile,
+        auth: {
+          isAuthenticated: true,
+          authUid: profile.uid,
+          accessToken: null,
+          emailVerified: true,
+          suspendMessage: null,
+          tokenClaimDenied: false,
+          tokenClaimReason: null,
+        },
+        user: {
+          name: profile.displayName,
+          email: profile.email,
+          role: profile.role || 'machine_wala',
+          tokens: profile.tokens ?? 0,
+          city: profile.city || '',
+          verified: false,
+          photoURL: profile.photoURL,
+        },
+        screen: 'home',
+        loading: false,
+      });
     } catch (e) {
       console.error('[Store] handleGoogleSignIn error:', e);
       set({
