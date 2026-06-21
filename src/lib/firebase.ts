@@ -1,10 +1,12 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDeOYtrCzbNevi-brpMYZPtGLw0HV7yVG0",
   authDomain: "embroidery-marketplace.firebaseapp.com",
+  databaseURL: "https://embroidery-marketplace-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "embroidery-marketplace",
   storageBucket: "embroidery-marketplace.firebasestorage.app",
   messagingSenderId: "504046031968",
@@ -17,6 +19,7 @@ console.log('[Firebase] App initialized. Project:', firebaseConfig.projectId);
 
 export const firebaseAuth = getAuth(app);
 export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
-console.log('[Firebase] Auth and Firestore ready. Using redirect-based auth.');
+console.log('[Firebase] Auth, Firestore, and Realtime Database ready. Using redirect-based auth.');
