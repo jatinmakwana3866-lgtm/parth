@@ -21,11 +21,12 @@ import { BuyTokensScreen } from './screens/BuyTokensScreen';
 import { ReferEarnScreen } from './screens/ReferEarnScreen';
 import { MyProfileScreen } from './screens/MyProfileScreen';
 import { SEODashboard } from './screens/SEODashboard';
+import { TransactionScreen } from './screens/TransactionScreen';
 import type { ScreenName } from './types';
 
 const PROTECTED_SCREENS: ScreenName[] = [
   'home', 'discover', 'profileView', 'chat', 'chatThread',
-  'tokenWallet', 'buyTokens', 'referEarn', 'myProfile', 'seoDashboard',
+  'tokenWallet', 'buyTokens', 'referEarn', 'myProfile', 'seoDashboard', 'transactions',
 ];
 
 function App() {
@@ -118,6 +119,7 @@ function App() {
       case 'referEarn': return <ReferEarnScreen />;
       case 'myProfile': return <MyProfileScreen />;
       case 'seoDashboard': return <SEODashboard />;
+      case 'transactions': return <TransactionScreen />;
       default: return <LanguageScreen />;
     }
   };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, MessageCircle, User, BarChart3 } from 'lucide-react';
+import { Home, Search, MessageCircle, User, BarChart3, Receipt } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { C } from '../lib/tokens';
 import type { ScreenName } from '../types';
@@ -10,7 +10,7 @@ export function BottomNav() {
   const tabs: { id: ScreenName; icon: React.ReactNode; label: string }[] = [
     { id: 'home', icon: <Home size={22} />, label: 'Home' },
     { id: 'discover', icon: <Search size={22} />, label: 'Search' },
-    { id: 'seoDashboard', icon: <BarChart3 size={22} />, label: 'SEO' },
+    { id: 'transactions', icon: <Receipt size={22} />, label: 'Pay' },
     { id: 'chat', icon: <MessageCircle size={22} />, label: 'Messages' },
     { id: 'myProfile', icon: <User size={22} />, label: 'Profile' },
   ];
