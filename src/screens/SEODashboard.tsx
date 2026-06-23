@@ -1,99 +1,125 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../lib/store';
-import { C, glassStyle, inputStyle } from '../lib/tokens';
-import { analyzeSEO, getStatusColor, getStatusBg, getStatusLabel } from '../lib/seoAnalyzer';
+import { C, glassStyle } from '../lib/tokens';
+import { analyzeSEO } from '../lib/seoAnalyzer';
 import type { SEOAnalysis } from '../types/seo';
 import {
   Search, ArrowLeft, Zap, Globe, KeyRound, Tags, Link2,
   Map, Shield, FileText, Smartphone, Gauge, Activity,
-  CheckCircle, XCircle, AlertTriangle, Info, Clock, ArrowUpRight,
+  CheckCircle, XCircle, AlertTriangle, Info,
   TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp,
-  ExternalLink, BarChart3, PieChart, Hash, Eye, Lock
+  Hash, Eye, Lock, Loader2, Award
 } from 'lucide-react';
 
 const TOOLS = [
-  { id: 'overview', label: 'Overview', icon: Activity },
-  { id: 'meta', label: 'Meta Tags', icon: Tags },
-  { id: 'keywords', label: 'Keywords', icon: KeyRound },
-  { id: 'traffic', label: 'Traffic', icon: Globe },
-  { id: 'backlinks', label: 'Backlinks', icon: Link2 },
-  { id: 'sitemap', label: 'Sitemap', icon: Map },
-  { id: 'robots', label: 'Robots.txt', icon: FileText },
-  { id: 'ssl', label: 'SSL/Security', icon: Shield },
-  { id: 'speed', label: 'Page Speed', icon: Gauge },
-  { id: 'mobile', label: 'Mobile', icon: Smartphone },
+  { id: 'seo-score', label: 'SEO Score Calculator', icon: Zap },
+  { id: 'traffic', label: 'Traffic Checker', icon: Globe },
+  { id: 'keywords', label: 'Keyword Checker', icon: KeyRound },
+  { id: 'meta', label: 'Meta Tags Validator', icon: Tags },
+  { id: 'backlinks', label: 'Backlink Checker', icon: Link2 },
+  { id: 'sitemap', label: 'Sitemap Checker', icon: Map },
+  { id: 'robots', label: 'Robots.txt Checker', icon: FileText },
+  { id: 'ssl', label: 'SSL Checker', icon: Shield },
+  { id: 'speed', label: 'Page Speed Checker', icon: Gauge },
+  { id: 'mobile', label: 'Mobile Responsive', icon: Smartphone },
+  { id: 'health', label: 'Overall Health Score', icon: Activity },
 ];
 
-function CircularScore({ score, size = 80, strokeWidth = 6, label }: { score: number; size?: number; strokeWidth?: number; label?: string }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 90 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 50 ? '#f59e0b' : '#ef4444';
+function getScoreColor(score: number) {
+  if (score >= 90) return '#22c55e';
+  if (score >= 70) return '#3b82f6';
+  if (score >= 50) return '#f59e0b';
+  return '#ef4444';
+}
 
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'excellent': return 'Excellent';
+    case 'good': return 'Good';
+    case 'needs-work': return 'Needs Work';
+    case 'critical': return 'Critical';
+    default: return 'Unknown';
+  }
+}
+
+function CircularScore({ score, size = 120, label }: { score: number; size?: number; label?: string }) {
+  const sw = 8;
+  const r = (size - sw) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c - (score / 100) * c;
+  const col = getScoreColor(score);
   return (
     <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={C.surface2} strokeWidth={strokeWidth} />
-        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 1s ease' }}
-        />
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={sw} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s ease' }} />
       </svg>
-      <div style={{ position: 'absolute', textAlign: 'center' }}>
-        <div style={{ fontSize: size > 100 ? '28px' : '18px', fontWeight: 800, color }}>{score}</div>
-        {label && <div style={{ fontSize: '10px', color: C.textMuted, marginTop: 2 }}>{label}</div>}
+      <div style={{ textAlign: 'center', zIndex: 1 }}>
+        <div style={{ fontSize: size > 100 ? '32px' : '22px', fontWeight: 800, color: col }}>{score}</div>
+        {label && <div style={{ fontSize: '11px', color: C.textMuted, marginTop: 2 }}>{label}</div>}
       </div>
     </div>
   );
 }
 
-function ScoreCard({ title, score, icon: Icon, onClick }: { title: string; score: number; icon: any; onClick?: () => void }) {
-  const color = getStatusColor(score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs-work' : 'critical');
-  const bg = getStatusBg(score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs-work' : 'critical');
-
+function StatusBadge({ score }: { score: number }) {
+  const status = score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'needs-work' : 'critical';
+  const c = getScoreColor(score);
   return (
-    <div onClick={onClick} style={{ ...glassStyle, padding: '16px', cursor: onClick ? 'pointer' : 'default', transition: 'transform 0.2s, box-shadow 0.2s' }}
-      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3)'; }}}
-      onMouseLeave={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={16} color={color} />
-          </div>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: C.textSoft }}>{title}</span>
-        </div>
-        <span style={{ fontSize: '18px', fontWeight: 800, color }}>{score}</span>
-      </div>
-      <div style={{ width: '100%', height: 4, background: C.surface2, borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 1s ease' }} />
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const color = getStatusColor(status);
-  const bg = getStatusBg(status);
-  const label = getStatusLabel(status);
-
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: bg, color, fontSize: '12px', fontWeight: 700 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: c + '18', color: c, fontSize: '12px', fontWeight: 700 }}>
       {status === 'excellent' ? <CheckCircle size={12} /> : status === 'critical' ? <XCircle size={12} /> : <AlertTriangle size={12} />}
-      {label}
+      {getStatusLabel(status)}
     </span>
   );
 }
 
-function CollapsibleSection({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Collapsible({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ ...glassStyle, marginBottom: 12, overflow: 'hidden' }}>
-      <button onClick={() => setOpen(!open)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'none', border: 'none', color: C.text, cursor: 'pointer', fontSize: '14px', fontWeight: 700 }}>
+      <button onClick={() => setOpen(!open)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'none', border: 'none', color: C.text, cursor: 'pointer', fontSize: '14px', fontWeight: 700 }}>
         {title}
         {open ? <ChevronUp size={16} color={C.textMuted} /> : <ChevronDown size={16} color={C.textMuted} />}
       </button>
       {open && <div style={{ padding: '0 16px 16px' }}>{children}</div>}
+    </div>
+  );
+}
+
+function ScoreCards({ result }: { result: SEOAnalysis }) {
+  const cards = [
+    { title: 'SEO Score', score: result.score, icon: Zap },
+    { title: 'Meta Tags', score: Math.floor((result.metaTags.title.optimal ? 25 : 0) + (result.metaTags.description.optimal ? 25 : 0) + (result.metaTags.ogTags.present ? 20 : 0) + (result.metaTags.schema.present ? 20 : 0) + (result.metaTags.canonical.present ? 10 : 0)), icon: Tags },
+    { title: 'Headings', score: result.headings.h1.present && result.headings.structure === 'good' ? 90 : 60, icon: Hash },
+    { title: 'Images', score: result.images.total > 0 ? Math.floor((result.images.withAlt / result.images.total) * 100) : 0, icon: Eye },
+    { title: 'Performance', score: result.performance.score, icon: Gauge },
+    { title: 'Mobile', score: result.mobile.score, icon: Smartphone },
+    { title: 'Security', score: result.security.score, icon: Shield },
+    { title: 'Backlinks', score: result.backlinks.score, icon: Link2 },
+    { title: 'Keywords', score: result.keywords.score, icon: KeyRound },
+    { title: 'Traffic', score: result.traffic.score, icon: Globe },
+  ];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      {cards.map((card, i) => {
+        const color = getScoreColor(card.score);
+        return (
+          <div key={i} style={{ ...glassStyle, padding: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <card.icon size={14} color={color} />
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: C.textSoft }}>{card.title}</span>
+              </div>
+              <span style={{ fontSize: '18px', fontWeight: 800, color }}>{card.score}</span>
+            </div>
+            <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: `${card.score}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 1s ease' }} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -108,7 +134,6 @@ function MetaTagsPanel({ data }: { data: SEOAnalysis['metaTags'] }) {
     { label: 'Twitter Cards', ...data.twitterTags, check: data.twitterTags.present },
     { label: 'Schema Markup', ...data.schema, check: data.schema.present },
   ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {items.map((item, i) => (
@@ -134,7 +159,7 @@ function KeywordsPanel({ data }: { data: SEOAnalysis['keywords'] }) {
         {data.topKeywords.map((kw, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < data.topKeywords.length - 1 ? `1px solid ${C.surface2}` : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 20, height: 20, borderRadius: '50%', background: C.goldGlassBg, color: C.gold, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+              <span style={{ width: 20, height: 20, borderRadius: '50%', background: C.gold + '18', color: C.gold, fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
               <span style={{ fontSize: '14px', color: C.text }}>{kw.keyword}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -149,7 +174,7 @@ function KeywordsPanel({ data }: { data: SEOAnalysis['keywords'] }) {
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Title Keywords</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {data.titleKeywords.map((k, i) => (
-              <span key={i} style={{ padding: '4px 8px', borderRadius: 6, background: C.goldGlassBg, color: C.gold, fontSize: '11px', fontWeight: 600 }}>{k}</span>
+              <span key={i} style={{ padding: '4px 8px', borderRadius: 6, background: C.gold + '18', color: C.gold, fontSize: '11px', fontWeight: 600 }}>{k}</span>
             ))}
           </div>
         </div>
@@ -204,7 +229,7 @@ function TrafficPanel({ data }: { data: SEOAnalysis['traffic'] }) {
                 <span style={{ fontSize: '13px', color: C.textSoft }}>{src.source}</span>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{src.percentage}%</span>
               </div>
-              <div style={{ width: '100%', height: 6, background: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{ width: `${src.percentage}%`, height: '100%', background: i === 0 ? '#22c55e' : i === 1 ? '#3b82f6' : i === 2 ? '#f59e0b' : '#8b5cf6', borderRadius: 3, transition: 'width 1s ease' }} />
               </div>
             </div>
@@ -279,18 +304,14 @@ function SitemapPanel({ data }: { data: SEOAnalysis['sitemap'] }) {
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Status</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.present ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.present ? '#22c55e' : '#ef4444' }}>
-              {data.present ? 'Found' : 'Missing'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.present ? '#22c55e' : '#ef4444' }}>{data.present ? 'Found' : 'Missing'}</span>
           </div>
         </div>
         <div style={{ ...glassStyle, padding: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Valid</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.valid ? <CheckCircle size={18} color="#22c55e" /> : <AlertTriangle size={18} color="#f59e0b" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.valid ? '#22c55e' : '#f59e0b' }}>
-              {data.valid ? 'Valid' : 'Invalid'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.valid ? '#22c55e' : '#f59e0b' }}>{data.valid ? 'Valid' : 'Invalid'}</span>
           </div>
         </div>
       </div>
@@ -314,9 +335,7 @@ function SitemapPanel({ data }: { data: SEOAnalysis['sitemap'] }) {
             <AlertTriangle size={14} color="#ef4444" />
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444' }}>Issues</span>
           </div>
-          {data.issues.map((issue, i) => (
-            <div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>
-          ))}
+          {data.issues.map((issue, i) => (<div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>))}
         </div>
       )}
     </div>
@@ -331,18 +350,14 @@ function RobotsPanel({ data }: { data: SEOAnalysis['robots'] }) {
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Status</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.present ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.present ? '#22c55e' : '#ef4444' }}>
-              {data.present ? 'Found' : 'Missing'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.present ? '#22c55e' : '#ef4444' }}>{data.present ? 'Found' : 'Missing'}</span>
           </div>
         </div>
         <div style={{ ...glassStyle, padding: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Valid</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.valid ? <CheckCircle size={18} color="#22c55e" /> : <AlertTriangle size={18} color="#f59e0b" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.valid ? '#22c55e' : '#f59e0b' }}>
-              {data.valid ? 'Valid' : 'Invalid'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.valid ? '#22c55e' : '#f59e0b' }}>{data.valid ? 'Valid' : 'Invalid'}</span>
           </div>
         </div>
       </div>
@@ -354,9 +369,7 @@ function RobotsPanel({ data }: { data: SEOAnalysis['robots'] }) {
         <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 8 }}>Sitemap Reference</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {data.sitemapRef ? <CheckCircle size={14} color="#22c55e" /> : <XCircle size={14} color="#ef4444" />}
-          <span style={{ fontSize: '14px', color: data.sitemapRef ? '#22c55e' : '#ef4444' }}>
-            {data.sitemapRef ? 'Sitemap referenced' : 'No sitemap reference'}
-          </span>
+          <span style={{ fontSize: '14px', color: data.sitemapRef ? '#22c55e' : '#ef4444' }}>{data.sitemapRef ? 'Sitemap referenced' : 'No sitemap reference'}</span>
         </div>
       </div>
       <div style={{ ...glassStyle, padding: '16px' }}>
@@ -374,9 +387,7 @@ function RobotsPanel({ data }: { data: SEOAnalysis['robots'] }) {
             <AlertTriangle size={14} color="#ef4444" />
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444' }}>Issues</span>
           </div>
-          {data.issues.map((issue, i) => (
-            <div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>
-          ))}
+          {data.issues.map((issue, i) => (<div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>))}
         </div>
       )}
     </div>
@@ -391,18 +402,14 @@ function SSLPanel({ data }: { data: SEOAnalysis['security'] }) {
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>SSL Certificate</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.ssl ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.ssl ? '#22c55e' : '#ef4444' }}>
-              {data.ssl ? 'Active' : 'Missing'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.ssl ? '#22c55e' : '#ef4444' }}>{data.ssl ? 'Active' : 'Missing'}</span>
           </div>
         </div>
         <div style={{ ...glassStyle, padding: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>HTTPS</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.https ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.https ? '#22c55e' : '#ef4444' }}>
-              {data.https ? 'Enabled' : 'Disabled'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.https ? '#22c55e' : '#ef4444' }}>{data.https ? 'Enabled' : 'Disabled'}</span>
           </div>
         </div>
       </div>
@@ -410,18 +417,14 @@ function SSLPanel({ data }: { data: SEOAnalysis['security'] }) {
         <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 8 }}>HSTS</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {data.hsts ? <CheckCircle size={14} color="#22c55e" /> : <XCircle size={14} color="#ef4444" />}
-          <span style={{ fontSize: '14px', color: data.hsts ? '#22c55e' : '#ef4444' }}>
-            {data.hsts ? 'HSTS enabled' : 'HSTS not enabled'}
-          </span>
+          <span style={{ fontSize: '14px', color: data.hsts ? '#22c55e' : '#ef4444' }}>{data.hsts ? 'HSTS enabled' : 'HSTS not enabled'}</span>
         </div>
       </div>
       <div style={{ ...glassStyle, padding: '16px' }}>
         <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 8 }}>Mixed Content</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {data.mixedContent ? <AlertTriangle size={14} color="#f59e0b" /> : <CheckCircle size={14} color="#22c55e" />}
-          <span style={{ fontSize: '14px', color: data.mixedContent ? '#f59e0b' : '#22c55e' }}>
-            {data.mixedContent ? 'Mixed content detected' : 'No mixed content'}
-          </span>
+          <span style={{ fontSize: '14px', color: data.mixedContent ? '#f59e0b' : '#22c55e' }}>{data.mixedContent ? 'Mixed content detected' : 'No mixed content'}</span>
         </div>
       </div>
       <div style={{ ...glassStyle, padding: '16px' }}>
@@ -456,42 +459,28 @@ function SpeedPanel({ data }: { data: SEOAnalysis['performance'] }) {
       <div style={{ ...glassStyle, padding: '16px' }}>
         <h4 style={{ fontSize: '14px', fontWeight: 700, color: C.text, margin: '0 0 12px' }}>Core Web Vitals</h4>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: '13px', color: C.textSoft }}>First Contentful Paint</span>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: data.firstContentfulPaint < 1.8 ? '#22c55e' : data.firstContentfulPaint < 3 ? '#f59e0b' : '#ef4444' }}>{data.firstContentfulPaint}s</span>
-            </div>
-            <div style={{ width: '100%', height: 6, background: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, (data.firstContentfulPaint / 3) * 100)}%`, height: '100%', background: data.firstContentfulPaint < 1.8 ? '#22c55e' : data.firstContentfulPaint < 3 ? '#f59e0b' : '#ef4444', borderRadius: 3 }} />
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: '13px', color: C.textSoft }}>Largest Contentful Paint</span>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: data.largestContentfulPaint < 2.5 ? '#22c55e' : data.largestContentfulPaint < 4 ? '#f59e0b' : '#ef4444' }}>{data.largestContentfulPaint}s</span>
-            </div>
-            <div style={{ width: '100%', height: 6, background: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, (data.largestContentfulPaint / 4) * 100)}%`, height: '100%', background: data.largestContentfulPaint < 2.5 ? '#22c55e' : data.largestContentfulPaint < 4 ? '#f59e0b' : '#ef4444', borderRadius: 3 }} />
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: '13px', color: C.textSoft }}>Time to Interactive</span>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: data.timeToInteractive < 3.8 ? '#22c55e' : data.timeToInteractive < 7.3 ? '#f59e0b' : '#ef4444' }}>{data.timeToInteractive}s</span>
-            </div>
-            <div style={{ width: '100%', height: 6, background: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, (data.timeToInteractive / 5) * 100)}%`, height: '100%', background: data.timeToInteractive < 3.8 ? '#22c55e' : data.timeToInteractive < 7.3 ? '#f59e0b' : '#ef4444', borderRadius: 3 }} />
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: '13px', color: C.textSoft }}>Cumulative Layout Shift</span>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: data.cumulativeLayoutShift < 0.1 ? '#22c55e' : data.cumulativeLayoutShift < 0.25 ? '#f59e0b' : '#ef4444' }}>{data.cumulativeLayoutShift.toFixed(2)}</span>
-            </div>
-            <div style={{ width: '100%', height: 6, background: C.surface2, borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, (data.cumulativeLayoutShift / 0.3) * 100)}%`, height: '100%', background: data.cumulativeLayoutShift < 0.1 ? '#22c55e' : data.cumulativeLayoutShift < 0.25 ? '#f59e0b' : '#ef4444', borderRadius: 3 }} />
-            </div>
-          </div>
+          {[
+            { label: 'First Contentful Paint', value: data.firstContentfulPaint, threshold: [1.8, 3] },
+            { label: 'Largest Contentful Paint', value: data.largestContentfulPaint, threshold: [2.5, 4] },
+            { label: 'Time to Interactive', value: data.timeToInteractive, threshold: [3.8, 7.3] },
+            { label: 'Cumulative Layout Shift', value: data.cumulativeLayoutShift, threshold: [0.1, 0.25] },
+          ].map((item, i) => {
+            const v = item.value;
+            const t = item.threshold;
+            const color = v < t[0] ? '#22c55e' : v < t[1] ? '#f59e0b' : '#ef4444';
+            const max = t[1] * 1.2;
+            return (
+              <div key={i}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: '13px', color: C.textSoft }}>{item.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color }}>{v < 1 ? v.toFixed(2) : v + (typeof v === 'number' ? 's' : '')}</span>
+                </div>
+                <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, (v / max) * 100)}%`, height: '100%', background: color, borderRadius: 3 }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       <div style={{ ...glassStyle, padding: '12px', textAlign: 'center' }}>
@@ -510,18 +499,14 @@ function MobilePanel({ data }: { data: SEOAnalysis['mobile'] }) {
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Responsive</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.responsive ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.responsive ? '#22c55e' : '#ef4444' }}>
-              {data.responsive ? 'Yes' : 'No'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.responsive ? '#22c55e' : '#ef4444' }}>{data.responsive ? 'Yes' : 'No'}</span>
           </div>
         </div>
         <div style={{ ...glassStyle, padding: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Viewport</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {data.viewportSet ? <CheckCircle size={18} color="#22c55e" /> : <XCircle size={18} color="#ef4444" />}
-            <span style={{ fontSize: '16px', fontWeight: 700, color: data.viewportSet ? '#22c55e' : '#ef4444' }}>
-              {data.viewportSet ? 'Set' : 'Missing'}
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: data.viewportSet ? '#22c55e' : '#ef4444' }}>{data.viewportSet ? 'Set' : 'Missing'}</span>
           </div>
         </div>
       </div>
@@ -529,9 +514,7 @@ function MobilePanel({ data }: { data: SEOAnalysis['mobile'] }) {
         <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 8 }}>Touch Targets</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '14px', color: C.text }}>Size: {data.touchTargets.size}px</span>
-          <span style={{ fontSize: '14px', fontWeight: 700, color: data.touchTargets.size >= 48 ? '#22c55e' : '#f59e0b' }}>
-            {data.touchTargets.size >= 48 ? 'Good' : 'Small'}
-          </span>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: data.touchTargets.size >= 48 ? '#22c55e' : '#f59e0b' }}>{data.touchTargets.size >= 48 ? 'Good' : 'Small'}</span>
         </div>
         <div style={{ fontSize: '12px', color: C.textMuted, marginTop: 4 }}>Adequate: {data.touchTargets.adequate}</div>
       </div>
@@ -539,9 +522,7 @@ function MobilePanel({ data }: { data: SEOAnalysis['mobile'] }) {
         <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 8 }}>Font Size</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {data.fontSize.readable ? <CheckCircle size={14} color="#22c55e" /> : <AlertTriangle size={14} color="#f59e0b" />}
-          <span style={{ fontSize: '14px', color: data.fontSize.readable ? '#22c55e' : '#f59e0b' }}>
-            {data.fontSize.readable ? 'Readable' : 'Too small'}
-          </span>
+          <span style={{ fontSize: '14px', color: data.fontSize.readable ? '#22c55e' : '#f59e0b' }}>{data.fontSize.readable ? 'Readable' : 'Too small'}</span>
         </div>
       </div>
       {data.touchTargets.issues.length > 0 && (
@@ -550,9 +531,7 @@ function MobilePanel({ data }: { data: SEOAnalysis['mobile'] }) {
             <AlertTriangle size={14} color="#f59e0b" />
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#f59e0b' }}>Issues</span>
           </div>
-          {data.touchTargets.issues.map((issue, i) => (
-            <div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>
-          ))}
+          {data.touchTargets.issues.map((issue, i) => (<div key={i} style={{ fontSize: '12px', color: C.textSoft, padding: '4px 0' }}>{issue}</div>))}
         </div>
       )}
     </div>
@@ -564,8 +543,9 @@ export function SEODashboard() {
   const [url, setUrl] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<SEOAnalysis | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTool, setActiveTool] = useState('seo-score');
   const [error, setError] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleAnalyze = async () => {
     if (!url.trim()) return;
@@ -576,7 +556,6 @@ export function SEODashboard() {
       if (!targetUrl.startsWith('http')) targetUrl = 'https://' + targetUrl;
       const data = await analyzeSEO(targetUrl);
       setResult(data);
-      setActiveTab('overview');
     } catch (e) {
       setError('Analysis failed. Please try again.');
     } finally {
@@ -584,85 +563,43 @@ export function SEODashboard() {
     }
   };
 
-  if (!result) {
-    return (
-      <div style={{ ...pageStyle, padding: '0 24px 100px', minHeight: '100vh' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 0' }}>
-          <button onClick={() => setScreen('home')} style={{ background: 'none', border: 'none', padding: 8, cursor: 'pointer' }}>
-            <ArrowLeft size={24} color={C.text} />
-          </button>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: C.text, margin: 0 }}>SEO Dashboard</h1>
-        </div>
-
-        <div style={{ textAlign: 'center', margin: '40px 0' }}>
-          <div style={{ width: 80, height: 80, borderRadius: 24, background: 'linear-gradient(135deg, #D4A853, #7A5520)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <Search size={36} color="#0A0E1A" />
+  const renderTool = () => {
+    if (!result) {
+      return (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg, #D4A853, #7A5520)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <Search size={30} color="#0A0E1A" />
           </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: C.text, margin: '0 0 8px' }}>SEO Analysis</h2>
-          <p style={{ fontSize: '14px', color: C.textSoft, maxWidth: '300px', margin: '0 auto', lineHeight: 1.5 }}>
-            Enter any website URL to analyze its SEO performance, traffic, keywords, and more.
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: C.text, margin: '0 0 8px' }}>SEO Dashboard</h2>
+          <p style={{ fontSize: '14px', color: C.textSoft, maxWidth: 360, margin: '0 auto 24px', lineHeight: 1.5 }}>
+            Enter a website URL above to analyze its SEO performance, traffic, keywords, security, and more.
           </p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...glassStyle, padding: '4px 4px 4px 16px' }}>
-            <Globe size={18} color={C.textMuted} />
-            <input
-              type="text"
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              placeholder="example.com"
-              onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
-              style={{ ...inputStyle, border: 'none', background: 'transparent', padding: '12px 0', flex: 1 }}
-            />
-          </div>
-          <button
-            onClick={handleAnalyze}
-            disabled={analyzing || !url.trim()}
-            style={{ ...goldBtnStyle, opacity: analyzing || !url.trim() ? 0.6 : 1 }}
-          >
-            {analyzing ? 'Analyzing...' : 'Analyze Website'}
-          </button>
-        </div>
-
-        {error && (
-          <div style={{ ...glassStyle, padding: '12px 16px', border: '1px solid rgba(239,68,68,0.3)', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ef4444', fontSize: '14px' }}>
-              <AlertTriangle size={16} /> {error}
-            </div>
-          </div>
-        )}
-
-        <div style={{ ...glassStyle, padding: '16px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 700, color: C.text, margin: '0 0 12px' }}>Available Tools</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {TOOLS.filter(t => t.id !== 'overview').map(tool => (
-              <div key={tool.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxWidth: 400, margin: '0 auto' }}>
+            {TOOLS.map(tool => (
+              <div key={tool.id} style={{ ...glassStyle, padding: '12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <tool.icon size={16} color={C.gold} />
                 <span style={{ fontSize: '12px', color: C.textSoft }}>{tool.label}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  const scoreCards = [
-    { title: 'SEO Score', score: result.score, icon: Zap },
-    { title: 'Meta Tags', score: Math.floor((result.metaTags.title.optimal ? 25 : 0) + (result.metaTags.description.optimal ? 25 : 0) + (result.metaTags.ogTags.present ? 20 : 0) + (result.metaTags.schema.present ? 20 : 0) + (result.metaTags.canonical.present ? 10 : 0)), icon: Tags },
-    { title: 'Headings', score: result.headings.h1.present && result.headings.structure === 'good' ? 90 : 60, icon: Hash },
-    { title: 'Images', score: result.images.total > 0 ? Math.floor((result.images.withAlt / result.images.total) * 100) : 0, icon: Eye },
-    { title: 'Performance', score: result.performance.score, icon: Gauge },
-    { title: 'Mobile', score: result.mobile.score, icon: Smartphone },
-    { title: 'Security', score: result.security.score, icon: Shield },
-    { title: 'Backlinks', score: result.backlinks.score, icon: Link2 },
-    { title: 'Keywords', score: result.keywords.score, icon: KeyRound },
-    { title: 'Traffic', score: result.traffic.score, icon: Globe },
-  ];
-
-  const renderPanel = () => {
-    switch (activeTab) {
+    switch (activeTool) {
+      case 'seo-score': return (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}>
+            <CircularScore score={result.score} label="Overall" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: getScoreColor(result.score) }}>{getStatusLabel(result.status)}</div>
+              <div style={{ fontSize: '12px', color: C.textMuted, marginTop: 4 }}>{result.issues.length} issues found</div>
+            </div>
+            <StatusBadge score={result.score} />
+          </div>
+          <ScoreCards result={result} />
+        </div>
+      );
       case 'meta': return <MetaTagsPanel data={result.metaTags} />;
       case 'keywords': return <KeywordsPanel data={result.keywords} />;
       case 'traffic': return <TrafficPanel data={result.traffic} />;
@@ -672,140 +609,154 @@ export function SEODashboard() {
       case 'ssl': return <SSLPanel data={result.security} />;
       case 'speed': return <SpeedPanel data={result.performance} />;
       case 'mobile': return <MobilePanel data={result.mobile} />;
+      case 'health': return (
+        <div>
+          <div style={{ ...glassStyle, padding: '24px', textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: '14px', color: C.textSoft, marginBottom: 8 }}>Overall Health Score</div>
+            <div style={{ fontSize: '56px', fontWeight: 800, color: getScoreColor(result.score), lineHeight: 1 }}>{result.score}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: getScoreColor(result.score), marginTop: 4 }}>{getStatusLabel(result.status)}</div>
+          </div>
+          <Collapsible title="Issues Found" defaultOpen={true}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {result.issues.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: '14px' }}>
+                  <CheckCircle size={16} /> No issues found!
+                </div>
+              ) : (
+                result.issues.map((issue, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
+                    <AlertTriangle size={14} color="#ef4444" />
+                    <span style={{ fontSize: '13px', color: C.text }}>{issue}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </Collapsible>
+          <Collapsible title="Recommendations" defaultOpen={false}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {result.recommendations.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: '14px' }}>
+                  <CheckCircle size={16} /> No recommendations needed!
+                </div>
+              ) : (
+                result.recommendations.map((rec, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(59,130,246,0.08)', borderRadius: 8 }}>
+                    <Info size={14} color="#3b82f6" />
+                    <span style={{ fontSize: '13px', color: C.text }}>{rec}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </Collapsible>
+          <div style={{ marginTop: 16 }}>
+            <ScoreCards result={result} />
+          </div>
+        </div>
+      );
       default: return null;
     }
   };
 
   return (
-    <div style={{ ...pageStyle, padding: '0 0 100px', minHeight: '100vh' }}>
-      <div style={{ padding: '16px 24px', position: 'sticky', top: 0, background: 'rgba(10,14,26,0.9)', backdropFilter: 'blur(20px)', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button onClick={() => { setResult(null); setUrl(''); }} style={{ background: 'none', border: 'none', padding: 8, cursor: 'pointer' }}>
-            <ArrowLeft size={24} color={C.text} />
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0A0E1A', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif' }}>
+      {/* Sidebar */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, bottom: 0, width: collapsed ? 60 : 220,
+        background: '#0F1525', borderRight: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex', flexDirection: 'column', zIndex: 50,
+        transition: 'width 0.25s ease',
+      }}>
+        <div style={{ padding: '16px 12px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: C.textSoft }}>
+            <ArrowLeft size={20} style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }} />
           </button>
-          <h1 style={{ fontSize: '18px', fontWeight: 800, color: C.text, margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</h1>
-          <StatusBadge status={result.status} />
+          {!collapsed && <span style={{ fontSize: '15px', fontWeight: 800, color: C.gold, whiteSpace: 'nowrap' }}>SEO Tools</span>}
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <CircularScore score={result.score} size={70} label="Overall" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '12px', color: C.textMuted, marginBottom: 4 }}>Overall Health Score</div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: getStatusColor(result.status) }}>
-              {getStatusLabel(result.status)}
-            </div>
-            <div style={{ fontSize: '12px', color: C.textMuted, marginTop: 4 }}>
-              {result.issues.length} issues found
-            </div>
-          </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}>
+          {TOOLS.map(tool => {
+            const isActive = activeTool === tool.id;
+            return (
+              <button
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 8px', borderRadius: 10, border: 'none',
+                  background: isActive ? 'rgba(212,168,83,0.15)' : 'transparent',
+                  color: isActive ? C.gold : C.textSoft,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: '13px', fontWeight: isActive ? 700 : 500,
+                  transition: 'all 0.15s', whiteSpace: 'nowrap',
+                }}
+                title={tool.label}
+              >
+                <tool.icon size={18} />
+                {!collapsed && <span>{tool.label}</span>}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div style={{ padding: '0 24px' }}>
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '12px 0', marginBottom: 8 }}>
-          {TOOLS.map(tool => (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTab(tool.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 20,
-                background: activeTab === tool.id ? C.gold : 'rgba(255,255,255,0.06)',
-                color: activeTab === tool.id ? '#0A0E1A' : C.textSoft,
-                border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
-              }}
-            >
-              <tool.icon size={14} />
-              {tool.label}
-            </button>
-          ))}
+      {/* TopBar */}
+      <div style={{
+        position: 'fixed', top: 0, left: collapsed ? 60 : 220, right: 0,
+        height: 56, background: 'rgba(10,14,26,0.92)', backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)', zIndex: 40,
+        display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px',
+        transition: 'left 0.25s ease',
+      }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, ...glassStyle, padding: '4px 4px 4px 12px' }}>
+          <Search size={16} color={C.textMuted} />
+          <input
+            type="text"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="Enter website URL (e.g. example.com)"
+            onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+            style={{ flex: 1, background: 'transparent', border: 'none', color: C.text, fontSize: '14px', outline: 'none', padding: '8px 0' }}
+          />
         </div>
+        <button
+          onClick={handleAnalyze}
+          disabled={analyzing || !url.trim()}
+          style={{
+            background: 'linear-gradient(135deg, #D4A853, #7A5520)', color: '#0A0E1A',
+            border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: '13px',
+            fontWeight: 700, cursor: analyzing || !url.trim() ? 'not-allowed' : 'pointer',
+            opacity: analyzing || !url.trim() ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          {analyzing ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} />}
+          {analyzing ? 'Analyzing' : 'Analyze'}
+        </button>
+      </div>
 
-        {activeTab === 'overview' && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-              {scoreCards.map((card, i) => (
-                <ScoreCard key={i} {...card} onClick={() => {
-                  const toolId = TOOLS.find(t => t.label === card.title || (t.label === 'Meta Tags' && card.title === 'Meta Tags') || (t.label === 'Page Speed' && card.title === 'Performance') || (t.label === 'SSL/Security' && card.title === 'Security'))?.id;
-                  if (toolId) setActiveTab(toolId);
-                }} />
-              ))}
-            </div>
-
-            <CollapsibleSection title="Issues Found" defaultOpen={true}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {result.issues.length === 0 ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: '14px' }}>
-                    <CheckCircle size={16} /> No issues found!
-                  </div>
-                ) : (
-                  result.issues.map((issue, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
-                      <AlertTriangle size={14} color="#ef4444" />
-                      <span style={{ fontSize: '13px', color: C.text }}>{issue}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Recommendations" defaultOpen={false}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {result.recommendations.length === 0 ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: '14px' }}>
-                    <CheckCircle size={16} /> No recommendations needed!
-                  </div>
-                ) : (
-                  result.recommendations.map((rec, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px', background: 'rgba(59,130,246,0.08)', borderRadius: 8 }}>
-                      <Info size={14} color="#3b82f6" />
-                      <span style={{ fontSize: '13px', color: C.text }}>{rec}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Quick Summary" defaultOpen={false}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                  <span style={{ fontSize: '13px', color: C.textSoft }}>Total Pages</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{result.sitemap.urls}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                  <span style={{ fontSize: '13px', color: C.textSoft }}>Backlinks</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{result.backlinks.total.toLocaleString()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                  <span style={{ fontSize: '13px', color: C.textSoft }}>Monthly Traffic</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{result.traffic.estimatedMonthly.toLocaleString()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                  <span style={{ fontSize: '13px', color: C.textSoft }}>Load Time</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{result.performance.loadTime}s</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                  <span style={{ fontSize: '13px', color: C.textSoft }}>SSL</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: result.security.ssl ? '#22c55e' : '#ef4444' }}>{result.security.ssl ? 'Active' : 'Missing'}</span>
-                </div>
-              </div>
-            </CollapsibleSection>
-          </>
+      {/* Main Content */}
+      <div style={{
+        marginLeft: collapsed ? 60 : 220,
+        marginTop: 56,
+        flex: 1,
+        padding: '24px',
+        maxWidth: 900,
+        minWidth: 0,
+        transition: 'margin-left 0.25s ease',
+      }}>
+        {error && (
+          <div style={{ ...glassStyle, padding: '12px 16px', border: '1px solid rgba(239,68,68,0.3)', marginBottom: 16, color: '#ef4444', fontSize: '14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertTriangle size={16} /> {error}
+          </div>
         )}
-
-        {activeTab !== 'overview' && renderPanel()}
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, color: C.text, margin: '0 0 4px' }}>
+            {TOOLS.find(t => t.id === activeTool)?.label || 'SEO Tool'}
+          </h2>
+          {url && result && (
+            <p style={{ fontSize: '12px', color: C.textMuted, margin: 0 }}>Results for {url}</p>
+          )}
+        </div>
+        {renderTool()}
       </div>
     </div>
   );
 }
-
-const pageStyle = {
-  background: `radial-gradient(ellipse at 15% 0%, rgba(212,168,83,0.13) 0%, transparent 55%), radial-gradient(ellipse at 85% 0%, rgba(46,204,138,0.08) 0%, transparent 50%), #0A0E1A`,
-  minHeight: '100vh',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
-  color: C.text,
-  maxWidth: '430px',
-  margin: '0 auto',
-  position: 'relative' as const,
-  overflowY: 'auto' as const,
-};

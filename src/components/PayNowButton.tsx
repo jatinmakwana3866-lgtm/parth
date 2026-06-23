@@ -1,9 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CreditCard, Loader2 } from 'lucide-react';
-import { C } from '../lib/tokens';
 
 interface PayNowButtonProps {
-  amount: number; // Amount in rupees (e.g., 100 = ₹100)
+  amount: number;
   description?: string;
   onSuccess?: (response: RazorpaySuccessResponse) => void;
   onError?: (error: string) => void;
@@ -16,40 +15,83 @@ interface RazorpaySuccessResponse {
   razorpay_signature: string;
 }
 
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: RazorpaySuccessResponse) => void;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
-  theme?: {
-    color?: string;
-  };
-  modal?: {
-    ondismiss?: () => void;
-  };
-}
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-interface RazorpayInstance {
-  open: () => void;
-  close: () => void;
-}
-
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+function isInIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
   }
 }
 
-const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+function openPopupCheckout(orderId: string, amount: number, key: string, desc: string) {
+  const popup = window.open(
+    '',
+    'RazorpayCheckout',
+    'width=600,height=700,top=100,left=100,scrollbars=yes,resizable=yes'
+  );
+  if (!popup) {
+    alert('Popup blocked. Please allow popups for this site and try again.');
+    return null;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Payment - Embroidery Marketplace</title>
+        <style>
+          body { font-family: system-ui, sans-serif; background: #0A0E1A; color: #F8F5F0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+          .loading { text-align: center; }
+          .spinner { width: 40px; height: 40px; border: 3px solid rgba(212,168,83,0.3); border-top-color: #D4A853; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          p { color: #A8A29E; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Loading secure checkout...</p>
+        </div>
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        <script>
+          const options = {
+            key: "${key}",
+            amount: ${amount},
+            currency: "INR",
+            name: "Embroidery Marketplace",
+            description: "${desc.replace(/"/g, '\\"')}",
+            order_id: "${orderId}",
+            handler: function(response) {
+              window.opener.postMessage({
+                type: 'RAZORPAY_SUCCESS',
+                payment_id: response.razorpay_payment_id,
+                order_id: response.razorpay_order_id,
+                signature: response.razorpay_signature
+              }, '*');
+              document.body.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:48px;margin-bottom:16px">✓</div><h2 style="color:#22c55e">Payment Successful!</h2><p style="color:#A8A29E">You can close this window.</p></div>';
+              setTimeout(function() { window.close(); }, 3000);
+            },
+            modal: {
+              ondismiss: function() {
+                window.opener.postMessage({ type: 'RAZORPAY_DISMISSED' }, '*');
+                window.close();
+              }
+            },
+            theme: { color: "#D4A853" }
+          };
+          const rzp = new Razorpay(options);
+          rzp.open();
+        </script>
+      </body>
+    </html>
+  `;
+
+  popup.document.write(html);
+  popup.document.close();
+  return popup;
+}
 
 export function PayNowButton({
   amount,
@@ -59,46 +101,23 @@ export function PayNowButton({
   disabled = false,
 }: PayNowButtonProps) {
   const [loading, setLoading] = useState(false);
-  const scriptLoaded = useRef(false);
-  const scriptLoading = useRef(false);
 
-  const loadScript = useCallback((): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (scriptLoaded.current) {
-        resolve();
-        return;
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'RAZORPAY_SUCCESS') {
+        setLoading(false);
+        onSuccess?.({
+          razorpay_payment_id: event.data.payment_id,
+          razorpay_order_id: event.data.order_id,
+          razorpay_signature: event.data.signature,
+        });
+      } else if (event.data?.type === 'RAZORPAY_DISMISSED') {
+        setLoading(false);
       }
-      if (scriptLoading.current) {
-        // Wait for existing load
-        const check = setInterval(() => {
-          if (scriptLoaded.current) {
-            clearInterval(check);
-            resolve();
-          }
-        }, 100);
-        return;
-      }
-      if (window.Razorpay) {
-        scriptLoaded.current = true;
-        resolve();
-        return;
-      }
-      scriptLoading.current = true;
-      const script = document.createElement('script');
-      script.src = RAZORPAY_SCRIPT;
-      script.async = true;
-      script.onload = () => {
-        scriptLoaded.current = true;
-        scriptLoading.current = false;
-        resolve();
-      };
-      script.onerror = () => {
-        scriptLoading.current = false;
-        reject(new Error('Failed to load Razorpay script'));
-      };
-      document.body.appendChild(script);
-    });
-  }, []);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [onSuccess]);
 
   const createOrder = useCallback(async (): Promise<{ orderId: string; amount: number; currency: string }> => {
     const apiUrl = `${SUPABASE_URL}/functions/v1/create-razorpay-order`;
@@ -109,7 +128,7 @@ export function PayNowButton({
         'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
-        amount: amount * 100, // Convert to paise
+        amount: amount * 100,
         currency: 'INR',
         receipt: `receipt_${Date.now()}`,
       }),
@@ -132,49 +151,48 @@ export function PayNowButton({
     setLoading(true);
 
     try {
-      // Load Razorpay script
-      await loadScript();
-
-      // Create order via backend
       const order = await createOrder();
+      const key = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T4vpcqQtxHaS9L';
 
-      // Open Razorpay checkout
-      const options: RazorpayOptions = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T4vpcqQtxHaS9L',
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Embroidery Marketplace',
-        description: description,
-        order_id: order.orderId,
-        handler: (response: RazorpaySuccessResponse) => {
+      if (isInIframe()) {
+        openPopupCheckout(order.orderId, order.amount, key, description);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        script.onload = () => {
+          const rzp = new (window as any).Razorpay({
+            key,
+            amount: order.amount,
+            currency: order.currency,
+            name: 'Embroidery Marketplace',
+            description: description,
+            order_id: order.orderId,
+            handler: (response: RazorpaySuccessResponse) => {
+              setLoading(false);
+              alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`);
+              onSuccess?.(response);
+            },
+            modal: {
+              ondismiss: () => setLoading(false),
+            },
+            theme: { color: '#D4A853' },
+          });
+          rzp.open();
+        };
+        script.onerror = () => {
           setLoading(false);
-          alert(`Payment successful! Payment ID: ${response.razorpay_payment_id}`);
-          onSuccess?.(response);
-        },
-        prefill: {
-          name: '',
-          email: '',
-          contact: '',
-        },
-        theme: {
-          color: '#D4A853',
-        },
-        modal: {
-          ondismiss: () => {
-            setLoading(false);
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+          onError?.('Failed to load Razorpay checkout');
+        };
+        document.body.appendChild(script);
+      }
     } catch (err) {
       setLoading(false);
       const message = err instanceof Error ? err.message : 'Payment failed';
       alert(`Payment Error: ${message}`);
       onError?.(message);
     }
-  }, [loading, disabled, loadScript, createOrder, description, onSuccess, onError]);
+  }, [loading, disabled, createOrder, description, onSuccess, onError]);
 
   return (
     <button
