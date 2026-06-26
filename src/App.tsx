@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { InstallBanner } from './components/InstallBanner';
 import { useStore } from './lib/store';
 import { supabase } from './lib/supabase';
 import { syncTokenBalance } from './lib/auth';
@@ -127,6 +128,7 @@ function App() {
   return (
     <div style={{ background: '#0A0E1A', minHeight: '100vh' }}>
       {renderScreen()}
+      <InstallBanner />
     </div>
   );
 }
