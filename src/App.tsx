@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { InstallBanner } from './components/InstallBanner';
 import { useStore } from './lib/store';
 import { supabase } from './lib/supabase';
 import { syncTokenBalance } from './lib/auth';
-import { onFirebaseAuthStateChanged, saveOrUpdateUserProfile } from './lib/firebaseAuth';
+import { onFirebaseAuthStateChanged, saveOrUpdateUserProfile, processRedirectResult } from './lib/firebaseAuth';
 
 import { LanguageScreen } from './onboarding/LanguageScreen';
 import { WelcomeScreen } from './onboarding/WelcomeScreen';
@@ -34,6 +34,51 @@ function App() {
   const screen = useStore(s => s.screen);
   const isAuthenticated = useStore(s => s.auth.isAuthenticated);
   const setAuth = useStore(s => s.setAuth);
+  const [processingRedirect, setProcessingRedirect] = useState(true);
+
+  // Handle Firebase redirect result on app load
+  useEffect(() => {
+    (async () => {
+      try {
+        const profile = await processRedirectResult();
+        if (profile) {
+          console.log('[App] Redirect result processed, user signed in:', profile.uid);
+          useStore.setState(state => ({
+            firebaseUser: profile,
+            auth: {
+              ...state.auth,
+              isAuthenticated: true,
+              authUid: profile.uid,
+              accessToken: null,
+              emailVerified: true,
+              suspendMessage: null,
+              tokenClaimDenied: false,
+              tokenClaimReason: null,
+            },
+            user: {
+              ...state.user,
+              name: profile.displayName,
+              email: profile.email,
+              role: profile.role || 'machine_wala',
+              tokens: profile.tokens ?? 0,
+              city: profile.city || '',
+              photoURL: profile.photoURL,
+            },
+            screen: 'home',
+            loading: false,
+          }));
+        }
+      } catch (err) {
+        console.error('[App] Error processing redirect result:', err);
+        useStore.setState({
+          loading: false,
+          auth: { ...useStore.getState().auth, suspendMessage: (err as Error).message },
+        });
+      } finally {
+        setProcessingRedirect(false);
+      }
+    })();
+  }, []);
 
   // Supabase auth listener
   useEffect(() => {
@@ -97,6 +142,23 @@ function App() {
     });
     return unsub;
   }, []);
+
+  // Show loading state while processing redirect
+  if (processingRedirect) {
+    return (
+      <div style={{
+        background: '#0A0E1A',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#A0AEC0',
+        fontSize: '16px',
+      }}>
+        Signing in...
+      </div>
+    );
+  }
 
   const effectiveScreen = PROTECTED_SCREENS.includes(screen) && !isAuthenticated
     ? 'welcome' as ScreenName

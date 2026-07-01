@@ -43,7 +43,8 @@ export function WelcomeScreen() {
     setSignInError('');
     try {
       await handleGoogleSignIn();
-      console.log('[WelcomeScreen] Google Sign-In completed successfully');
+      // Note: This will redirect away, so any code below won't execute.
+      // The "Signing in..." state will show until the page redirects.
     } catch (e) {
       console.error('[WelcomeScreen] Google Sign-In error:', e);
       setSignInError((e as Error).message);

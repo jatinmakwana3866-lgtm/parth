@@ -22,4 +22,3 @@ export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
-console.log('[Firebase] Auth, Firestore, and Realtime Database ready. Using redirect-based auth.');
