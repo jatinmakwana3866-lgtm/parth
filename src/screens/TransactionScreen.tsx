@@ -12,8 +12,8 @@ import {
 
 interface PaymentRecord {
   id: string;
-  order_id: string;
-  payment_id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
   amount: number;
   currency: string;
   status: string;
@@ -37,7 +37,7 @@ export function TransactionScreen() {
     try {
       const { data, error } = await supabase
         .from('payments')
-        .select('id, order_id, payment_id, amount, currency, status, tokens_purchased, created_at')
+        .select('id, razorpay_order_id, razorpay_payment_id, amount, currency, status, tokens_purchased, created_at')
         .eq('user_uid', auth.authUid)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -60,12 +60,12 @@ export function TransactionScreen() {
         await supabase
           .from('payments')
           .update({
-            payment_id: response.razorpay_payment_id,
+            razorpay_payment_id: response.razorpay_payment_id,
             status: 'completed',
             updated_at: new Date().toISOString(),
           })
           .eq('user_uid', auth.authUid)
-          .eq('order_id', response.razorpay_order_id);
+          .eq('razorpay_order_id', response.razorpay_order_id);
 
         buyPackage(selectedPkg);
         await fetchPayments();
@@ -115,21 +115,15 @@ export function TransactionScreen() {
 
       {/* Token Balance Card */}
       <div style={{ ...goldGlassStyle, padding: '24px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(212,168,83,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Wallet size={22} color={C.gold} />
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: C.textSoft, marginBottom: 2 }}>Current Balance</div>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: C.gold, lineHeight: 1 }}>
-                {user.tokens} <span style={{ fontSize: '14px', fontWeight: 600 }}>tokens</span>
-              </div>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '16px' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(212,168,83,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Wallet size={22} color={C.gold} />
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', color: C.textSoft }}>Value</div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: C.text }}>₹{user.tokens * 10}</div>
+          <div>
+            <div style={{ fontSize: '12px', color: C.textSoft, marginBottom: 2 }}>Current Balance</div>
+            <div style={{ fontSize: '28px', fontWeight: 800, color: C.gold, lineHeight: 1 }}>
+              {user.tokens} <span style={{ fontSize: '14px', fontWeight: 600 }}>tokens</span>
+            </div>
           </div>
         </div>
         <div style={{ height: 1, background: 'rgba(212,168,83,0.2)', marginBottom: '16px' }} />
@@ -236,14 +230,14 @@ export function TransactionScreen() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
                 <ArrowLeftRight size={12} color={C.textMuted} />
                 <span style={{ fontSize: '11px', color: C.textMuted, fontFamily: 'monospace' }}>
-                  {payment.order_id}
+                  {payment.razorpay_order_id}
                 </span>
               </div>
-              {payment.payment_id && (
+              {payment.razorpay_payment_id && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
                   <CreditCard size={12} color={C.textMuted} />
                   <span style={{ fontSize: '11px', color: C.textMuted, fontFamily: 'monospace' }}>
-                    {payment.payment_id}
+                    {payment.razorpay_payment_id}
                   </span>
                 </div>
               )}

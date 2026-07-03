@@ -25,7 +25,7 @@ export function BuyTokensScreen() {
         <span style={{ fontSize: '22px' }}>💼</span>
         <div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: C.gold }}>Vyapari Unlock = 10 Tokens</div>
-          <div style={{ fontSize: '12px', color: C.textSoft }}>Other professionals cost just 1 token each</div>
+          <div style={{ fontSize: '12px', color: C.textSoft }}>Other roles cost just 1 token each</div>
         </div>
       </div>
 

@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
         
         await supabase.from("payments").insert({
           user_uid,
-          order_id: data.id,
+          razorpay_order_id: data.id,
           amount,
           currency,
           status: "created",
