@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../lib/store';
-import { C, pageStyle, inputStyle } from '../lib/tokens';
+import { CDark, pageStyle, inputStyle, fonts, radii, buttonStyle } from '../lib/tokens';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { GhostButton } from '../components/GhostButton';
 import type { Language } from '../types';
@@ -21,6 +21,14 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+// Google Sign-In button (branded exception per PRD 3.3)
+const googleBtnStyle: React.CSSProperties = {
+  ...buttonStyle(true),
+  backgroundColor: '#FFFFFF',
+  color: '#1F1F1F',
+  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+};
 
 export function WelcomeScreen() {
   const { language, setScreen, handleSignIn, handleGoogleSignIn, loading } = useStore();
@@ -43,8 +51,6 @@ export function WelcomeScreen() {
     setSignInError('');
     try {
       await handleGoogleSignIn();
-      // Note: This will redirect away, so any code below won't execute.
-      // The "Signing in..." state will show until the page redirects.
     } catch (e) {
       console.error('[WelcomeScreen] Google Sign-In error:', e);
       setSignInError((e as Error).message);
@@ -54,32 +60,32 @@ export function WelcomeScreen() {
   return (
     <div style={{ ...pageStyle, padding: '0 24px 60px', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh' }}>
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <div style={{ fontSize: '80px', filter: `drop-shadow(0 0 32px ${C.gold}80)`, marginBottom: '24px' }}>🪡</div>
+        <div style={{ fontSize: '80px', filter: `drop-shadow(0 0 32px ${CDark.primary}80)`, marginBottom: '24px' }}>🪡</div>
         <h1 style={{
-          fontSize: '34px', fontWeight: 800, color: C.text, margin: '0 0 16px',
-          letterSpacing: '-0.03em', lineHeight: 1.15,
+          fontFamily: fonts.display,
+          fontSize: '32px',
+          fontWeight: 800,
+          color: CDark.foreground,
+          margin: '0 0 16px',
+          letterSpacing: '-0.025em',
+          lineHeight: 1.15,
         }}>
           Embroidery<br />Marketplace
         </h1>
-        <p style={{ color: C.textSoft, fontSize: '15px', lineHeight: 1.65, maxWidth: '300px', margin: '0 auto' }}>
+        <p style={{ color: CDark.muted, fontSize: '15px', lineHeight: 1.65, maxWidth: '300px', margin: '0 auto' }}>
           {TAGLINES[language]}
         </p>
       </div>
 
       {!showSignIn ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Google Sign-In — primary CTA */}
           <button
             onClick={onGoogleSignIn}
             disabled={loading}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              background: '#fff', color: '#1f1f1f', border: 'none',
-              borderRadius: '14px', padding: '14px 24px', width: '100%',
-              fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', opacity: loading ? 0.7 : 1,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s ease',
+              ...googleBtnStyle,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
             <GoogleIcon />
@@ -88,7 +94,7 @@ export function WelcomeScreen() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '4px 0' }}>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-            <span style={{ color: C.textMuted, fontSize: '13px' }}>or</span>
+            <span style={{ color: CDark.muted, fontSize: '13px' }}>or</span>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
           </div>
 
@@ -99,8 +105,12 @@ export function WelcomeScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {signInError && (
             <div style={{
-              background: C.rose + '18', border: `1px solid ${C.rose}44`,
-              borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: C.rose,
+              background: 'rgba(232,81,106,0.1)',
+              border: `1px solid rgba(232,81,106,0.3)`,
+              borderRadius: radii.sm,
+              padding: '12px 16px',
+              fontSize: '13px',
+              color: '#E8516A',
             }}>
               {signInError}
             </div>
@@ -110,12 +120,9 @@ export function WelcomeScreen() {
             onClick={onGoogleSignIn}
             disabled={loading}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              background: '#fff', color: '#1f1f1f', border: 'none',
-              borderRadius: '14px', padding: '14px 24px', width: '100%',
-              fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', opacity: loading ? 0.7 : 1,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+              ...googleBtnStyle,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
             <GoogleIcon />
@@ -124,7 +131,7 @@ export function WelcomeScreen() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-            <span style={{ color: C.textMuted, fontSize: '13px' }}>or email</span>
+            <span style={{ color: CDark.muted, fontSize: '13px' }}>or email</span>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
           </div>
 
@@ -150,7 +157,7 @@ export function WelcomeScreen() {
         </div>
       )}
 
-      <p style={{ textAlign: 'center', color: C.textMuted, fontSize: '12px', marginTop: '24px' }}>
+      <p style={{ textAlign: 'center', color: CDark.muted, fontSize: '12px', marginTop: '24px' }}>
         Trusted by 10,000+ embroidery professionals
       </p>
     </div>

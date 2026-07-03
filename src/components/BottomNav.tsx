@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Search, MessageCircle, User, BarChart3, Receipt } from 'lucide-react';
+import { Home, Search, MessageCircle, User, Receipt } from 'lucide-react';
 import { useStore } from '../lib/store';
-import { C } from '../lib/tokens';
+import { CDark, liquidGlassStyle, radii, fonts } from '../lib/tokens';
 import type { ScreenName } from '../types';
 
 export function BottomNav() {
@@ -21,16 +21,14 @@ export function BottomNav() {
       bottom: 0,
       left: 0,
       right: 0,
-      background: 'rgba(17,24,39,0.95)',
-      backdropFilter: 'blur(20px) saturate(180%)',
-      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-      borderTop: '1px solid rgba(255,255,255,0.08)',
+      ...liquidGlassStyle,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-around',
       padding: '8px 0 max(8px, env(safe-area-inset-bottom))',
       zIndex: 100,
       maxWidth: '430px',
+      margin: '0 auto',
     }}>
       {tabs.map(tab => (
         <button
@@ -43,10 +41,10 @@ export function BottomNav() {
             gap: '3px',
             background: 'none',
             border: 'none',
-            color: screen === tab.id ? C.gold : C.textSoft,
+            color: screen === tab.id ? CDark.primary : CDark.muted,
             cursor: 'pointer',
             padding: '4px 12px',
-            fontFamily: 'inherit',
+            fontFamily: fonts.body,
             fontSize: '10px',
             fontWeight: screen === tab.id ? 600 : 400,
             transition: 'color 0.15s ease',
